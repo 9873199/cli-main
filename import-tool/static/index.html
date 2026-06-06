@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞书多维表格数据回填工具</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #1f2329; min-height: 100vh; }
+.header { background: linear-gradient(135deg, #3370ff 0%, #5e5ce6 100%); color: white; padding: 24px 40px; }
+.header h1 { font-size: 22px; font-weight: 600; }
+.header p { font-size: 14px; opacity: 0.85; margin-top: 4px; }
+.container { max-width: 1100px; margin: 0 auto; padding: 24px 40px; }
+.steps { display: flex; gap: 8px; margin-bottom: 24px; }
+.step { flex: 1; display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-radius: 10px; background: white; border: 2px solid #e5e6eb; cursor: pointer; transition: all 0.2s; }
+.step.active { border-color: #3370ff; background: #f0f4ff; }
+.step.done { border-color: #34c759; background: #f0faf2; }
+.step-num { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 600; background: #e5e6eb; color: #646a73; }
+.step.active .step-num { background: #3370ff; color: white; }
+.step.done .step-num { background: #34c759; color: white; }
+.step-text { font-size: 14px; font-weight: 500; }
+.card { background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+.card h2 { font-size: 17px; font-weight: 600; margin-bottom: 16px; }
+.form-group { margin-bottom: 18px; }
+.form-group label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; color: #1f2329; }
+.form-group input, .form-group select { width: 100%; padding: 10px 14px; border: 1px solid #dee0e3; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+.form-group input:focus { border-color: #3370ff; }
+.form-group .hint { font-size: 12px; color: #8f959e; margin-top: 4px; }
+.btn { padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; }
+.btn-primary { background: #3370ff; color: white; }
+.btn-primary:hover { background: #2860e0; }
+.btn-primary:disabled { background: #c0c4cc; cursor: not-allowed; }
+.btn-secondary { background: #f2f3f5; color: #646a73; }
+.btn-secondary:hover { background: #e5e6eb; }
+.btn-danger { background: #f54a45; color: white; }
+.btn-danger:hover { background: #d93931; }
+.actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
+.auth-status { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+.auth-ok { background: #f0faf2; color: #1d8f3a; border: 1px solid #b8e8c8; }
+.auth-fail { background: #fef0f0; color: #f54a45; border: 1px solid #fcd5d3; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { background: #f7f8fa; padding: 10px 12px; text-align: left; font-weight: 600; border-bottom: 1px solid #e5e6eb; white-space: nowrap; }
+td { padding: 8px 12px; border-bottom: 1px solid #f2f3f5; }
+tr:hover td { background: #f7f8fa; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }
+.badge-blue { background: #e8f0ff; color: #3370ff; }
+.badge-green { background: #e8f8ef; color: #1d8f3a; }
+.badge-red { background: #fef0f0; color: #f54a45; }
+.badge-yellow { background: #fff8e6; color: #b8810a; }
+.badge-purple { background: #f0e8ff; color: #6424d2; }
+.progress-bar { width: 100%; height: 8px; background: #e5e6eb; border-radius: 4px; overflow: hidden; margin: 12px 0; }
+.progress-fill { height: 100%; background: #3370ff; border-radius: 4px; transition: width 0.3s; }
+.log-area { background: #1f2329; color: #c9e37c; padding: 16px; border-radius: 8px; font-family: "Cascadia Code", "Fira Code", monospace; font-size: 12px; max-height: 300px; overflow-y: auto; line-height: 1.6; }
+.log-area .success { color: #4ade80; }
+.log-area .error { color: #f87171; }
+.log-area .info { color: #93c5fd; }
+.log-area .warning { color: #f0b429; }
+.dir-browser { border: 1px solid #dee0e3; border-radius: 8px; max-height: 250px; overflow-y: auto; }
+.dir-item { padding: 8px 14px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; border-bottom: 1px solid #f2f3f5; }
+.dir-item:hover { background: #f0f4ff; }
+.dir-item .icon { font-size: 16px; }
+.dir-item-main { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.dir-item-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dir-item-meta { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.dir-item-hint { font-size: 11px; color: #8f959e; }
+.dir-item-importable { background: #f6ffed; }
+.summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.summary-card { background: #f7f8fa; border-radius: 8px; padding: 14px; text-align: center; }
+.summary-card .num { font-size: 28px; font-weight: 700; color: #3370ff; }
+.summary-card .label { font-size: 12px; color: #8f959e; margin-top: 4px; }
+.loading { display: inline-block; width: 18px; height: 18px; border: 2px solid #e5e6eb; border-top-color: #3370ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>飞书多维表格数据回填工具</h1>
+  <p>将本地评估产物数据批量导入飞书多维表格</p>
+  <p style="margin-top:8px;opacity:0.95;">
+    <span class="badge badge-purple">页面版本 <span id="pageVersion">2026-06-05-0145</span></span>
+    <span class="badge badge-blue" style="margin-left:8px;">后端版本 <span id="serverVersion">等待接口返回</span></span>
+  </p>
+</div>
+
+<div class="container">
+  <div class="steps">
+    <div class="step active" id="step1-indicator" onclick="goToStep(1)">
+      <div class="step-num">1</div>
+      <div class="step-text">配置</div>
+    </div>
+    <div class="step" id="step2-indicator" onclick="goToStep(2)">
+      <div class="step-num">2</div>
+      <div class="step-text">预览</div>
+    </div>
+    <div class="step" id="step3-indicator" onclick="goToStep(3)">
+      <div class="step-num">3</div>
+      <div class="step-text">导入</div>
+    </div>
+  </div>
+
+  <!-- Step 1: 配置 -->
+  <div id="step1">
+    <div id="authStatus" class="auth-status auth-fail">
+      <span>⏳</span> 正在检查飞书认证状态...
+    </div>
+    <div class="card">
+      <h2>本机飞书状态</h2>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-danger" id="btnResetConfig" onclick="resetLocalConfig()">清除本机飞书配置/认证</button>
+        <span id="resetConfigStatus" style="font-size:13px;color:#8f959e;"></span>
+      </div>
+      <div class="hint" style="margin-top:8px;">会清除当前设备保存的飞书应用配置和扫码授权状态，清除后需要重新走一遍最简配置流程</div>
+    </div>
+    <div id="configPanel" class="card hidden">
+      <h2>第一步：飞书应用配置</h2>
+      <div class="hint" style="margin-bottom:12px;">最简单的方式：点击一次按钮，按飞书页面提示创建或绑定应用；完成后再回来点“我已完成配置”</div>
+      <div id="configInitIdle" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="btnStartConfig" onclick="startSimpleConfig()">一键打开飞书配置</button>
+        <span id="configStatusText" style="font-size:13px;color:#8f959e;"></span>
+      </div>
+      <div id="configInitLoading" class="hidden" style="text-align:center;padding:20px 0;">
+        <div class="loading"></div>
+        <p style="margin-top:12px;color:#8f959e;">正在生成飞书配置二维码...</p>
+      </div>
+      <div id="configInitQR" class="hidden" style="text-align:center;">
+        <p style="margin-bottom:12px;color:#646a73;font-size:14px;">请扫码或打开链接，在飞书页面完成应用创建 / 绑定</p>
+        <img id="configQrImage" class="hidden" alt="飞书应用配置二维码" style="width:240px;height:240px;background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e6eb;object-fit:contain;">
+        <pre id="configQrASCII" class="hidden" style="display:inline-block;background:#fff;padding:12px 16px;border-radius:8px;font-size:8px;line-height:1.1;letter-spacing:0px;border:1px solid #e5e6eb;"></pre>
+        <p style="margin-top:12px;">
+          <a id="configVerificationLink" href="#" target="_blank" style="color:#3370ff;font-size:13px;">也可以点击此链接在浏览器中打开</a>
+        </p>
+        <div style="margin-top:16px;">
+          <button class="btn btn-primary" id="btnConfigComplete" onclick="completeSimpleConfig()">我已完成配置</button>
+        </div>
+      </div>
+      <div id="configError" class="hidden" style="color:#f54a45;padding-top:12px;"></div>
+    </div>
+
+    <div id="authLoginPanel" class="card hidden">
+      <h2>飞书扫码登录</h2>
+      <div id="authLoginLoading" style="text-align:center;padding:20px;">
+        <div class="loading"></div>
+        <p style="margin-top:12px;color:#8f959e;">正在生成登录二维码...</p>
+      </div>
+      <div id="authLoginQR" class="hidden" style="text-align:center;">
+        <p style="margin-bottom:12px;color:#646a73;font-size:14px;">请使用飞书 App 扫描下方二维码完成授权</p>
+        <img id="qrImage" class="hidden" alt="飞书登录二维码" style="width:240px;height:240px;background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e6eb;object-fit:contain;">
+        <pre id="qrASCII" class="hidden" style="display:inline-block;background:#fff;padding:12px 16px;border-radius:8px;font-size:8px;line-height:1.1;letter-spacing:0px;border:1px solid #e5e6eb;"></pre>
+        <p style="margin-top:12px;">
+          <a id="verificationLink" href="#" target="_blank" style="color:#3370ff;font-size:13px;">也可以点击此链接在浏览器中打开</a>
+        </p>
+        <div style="margin-top:16px;">
+          <button class="btn btn-primary" id="btnAuthComplete" onclick="completeAuthLogin()">我已完成扫码授权</button>
+        </div>
+      </div>
+      <div id="authLoginError" class="hidden" style="color:#f54a45;padding:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>基本配置</h2>
+      <div class="form-group">
+        <label>提交者姓名/昵称</label>
+        <input type="text" id="submitter" placeholder="例如：华创-XXX">
+        <div class="hint">用于标识数据提交者</div>
+      </div>
+      <div class="form-group">
+        <label>目标多维表格 URL</label>
+        <input type="text" id="baseURL" placeholder="https://xxx.feishu.cn/base/xxx?table=xxx">
+        <div class="hint">飞书多维表格的完整 URL</div>
+      </div>
+      <div class="form-group">
+        <label>本地数据文件夹路径</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="folderPath" placeholder="D:\z中强\docker0520\tools\dist\repo-1" style="flex:1;">
+          <button class="btn btn-secondary" onclick="browseFolder()">浏览</button>
+        </div>
+        <div class="hint">输入任意目录后，会递归解析该目录下面所有子目录中的 prompt-N.txt、NN.id、NN.score、NN.patch；*.log、*.zip、slot-models.json 会自动忽略</div>
+      </div>
+      <div id="dirBrowser" class="dir-browser hidden"></div>
+    </div>
+
+    <div class="card">
+      <h2>父级数据关联</h2>
+      <div class="form-group">
+        <label>父级 Record ID</label>
+        <input type="text" id="parentRecordId" placeholder="必填：你新建的父级 Record ID">
+        <div class="hint">会先按 prompt-N.txt 创建二级 Prompt 行（关联到此父记录），再把 NN.id/NN.score/NN.patch 解析成三级 Rollout 行（关联到对应 Prompt）</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>模型顺序配置</h2>
+      <div style="font-size:13px;color:#646a73;line-height:1.8;">
+        <p>前4次 Rollout 固定顺序：</p>
+        <p style="margin-left:16px;">
+          <span class="badge badge-blue">1. Doubao-Seed-2.0-Code</span>
+          <span class="badge badge-green">2. GPT5.4</span>
+          <span class="badge badge-yellow">3. Gemini 3.1 pro</span>
+          <span class="badge badge-purple">4. DeepSeek-v4</span>
+        </p>
+        <p style="margin-top:8px;">第5次 Rollout 轮流：</p>
+        <p style="margin-left:16px;">
+          <span class="badge badge-red">GLM-5.1</span> /
+          <span class="badge badge-red">Qwen3.6-Plus</span>
+          （按 rollout 序号轮流）
+        </p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btnNext1" onclick="goToStep(2)">下一步：预览</button>
+    </div>
+  </div>
+
+  <!-- Step 2: 预览 -->
+  <div id="step2" class="hidden">
+    <div class="card">
+      <h2>数据预览</h2>
+      <div id="previewLoading" style="text-align:center;padding:40px;">
+        <div class="loading"></div>
+        <p style="margin-top:12px;color:#8f959e;">正在解析文件并匹配表格记录...</p>
+      </div>
+      <div id="previewContent" class="hidden">
+        <div class="summary-grid" id="summaryGrid"></div>
+        <div id="previewScanDetails" style="margin:16px 0;"></div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>来源目录</th>
+                <th>序号</th>
+                <th>Rollout ID</th>
+                <th>Prompt 序号</th>
+                <th>模型</th>
+                <th>分数</th>
+                <th>Session ID</th>
+                <th>状态</th>
+              </tr>
+            </thead>
+            <tbody id="previewTable"></tbody>
+          </table>
+        </div>
+      </div>
+      <div id="previewError" class="hidden" style="color:#f54a45;padding:20px;"></div>
+      <div id="previewErrorScanDetails" class="hidden" style="padding:0 20px 20px 20px;"></div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="goToStep(1)">上一步</button>
+      <button class="btn btn-primary" id="btnNext2" onclick="goToStep(3)">下一步：导入</button>
+    </div>
+  </div>
+
+  <!-- Step 3: 导入 -->
+  <div id="step3" class="hidden">
+    <div class="card">
+      <h2>执行导入</h2>
+      <div id="importReady">
+        <p style="margin-bottom:16px;color:#646a73;">确认以下信息后点击"开始导入"：</p>
+        <div id="importSummary"></div>
+        <div class="actions" style="justify-content:flex-start;">
+          <button class="btn btn-danger" id="btnImport" onclick="startImport()">开始导入</button>
+        </div>
+      </div>
+      <div id="importProgress" class="hidden">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+        <p id="progressText" style="font-size:14px;color:#646a73;margin-top:8px;"></p>
+        <div class="log-area" id="importLog"></div>
+      </div>
+      <div id="importDone" class="hidden">
+        <div class="summary-grid" id="resultGrid"></div>
+        <div id="resultWarnings" class="log-area hidden" style="margin-top:16px;border-color:#f0b429;background:#fff8e1;color:#8a5b00;"></div>
+        <div class="log-area" id="resultLog" style="margin-top:16px;"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="goToStep(2)">上一步</button>
+      <button class="btn btn-primary hidden" id="btnRestart" onclick="resetImportState(true)">再次导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const APP_VERSION = '2026-06-06-0045';
+let currentStep = 1;
+let previewData = null;
+let previewMeta = null;
+let currentDeviceCode = '';
+
+function applyResponseVersion(res, data) {
+  const headerVersion = res.headers.get('X-Import-Tool-Version');
+  const version = (data && data.version) || headerVersion || '未知';
+  document.getElementById('serverVersion').textContent = version;
+}
+
+function goToStep(step) {
+  if (step === 2 && currentStep === 1) {
+    if (!document.getElementById('folderPath').value || !document.getElementById('baseURL').value || !document.getElementById('parentRecordId').value) {
+      alert('请先填写文件夹路径、表格 URL 和父级 Record ID');
+      return;
+    }
+  }
+  if (step === 3 && !previewData) {
+    alert('请先完成预览');
+    return;
+  }
+
+  document.getElementById('step' + currentStep).classList.add('hidden');
+  document.getElementById('step' + step).classList.remove('hidden');
+
+  for (let i = 1; i <= 3; i++) {
+    const ind = document.getElementById('step' + i + '-indicator');
+    ind.classList.remove('active', 'done');
+    if (i < step) ind.classList.add('done');
+    else if (i === step) ind.classList.add('active');
+  }
+
+  currentStep = step;
+
+  if (step === 2) loadPreview();
+  if (step === 3) prepareImport();
+}
+
+async function checkAuth() {
+  const el = document.getElementById('authStatus');
+  const configPanel = document.getElementById('configPanel');
+  const configStatusText = document.getElementById('configStatusText');
+  try {
+    const res = await fetch('/api/check-auth');
+    const data = await res.json();
+    applyResponseVersion(res, data);
+    if (data.authed) {
+      configPanel.classList.add('hidden');
+      document.getElementById('authLoginPanel').classList.add('hidden');
+      configStatusText.textContent = '';
+      el.className = 'auth-status auth-ok';
+      el.innerHTML = '<span>✅</span> 飞书已认证';
+      return;
+    }
+
+    if (data.configured === false) {
+      configPanel.classList.remove('hidden');
+      configStatusText.textContent = '当前设备还没有完成飞书应用配置';
+      el.className = 'auth-status auth-fail';
+      el.innerHTML = '<span>⚙️</span> 先完成飞书应用配置，再扫码登录';
+      return;
+    }
+
+    configPanel.classList.add('hidden');
+    configStatusText.textContent = '';
+    el.className = 'auth-status auth-fail';
+    el.innerHTML = '<span>❌</span> 飞书未认证 <button class="btn btn-primary" style="margin-left:12px;padding:6px 16px;font-size:13px;" onclick="startAuthLogin()">扫码登录</button>';
+  } catch (e) {
+    el.className = 'auth-status auth-fail';
+    el.innerHTML = '<span>❌</span> 无法检查认证状态 <button class="btn btn-primary" style="margin-left:12px;padding:6px 16px;font-size:13px;" onclick="startAuthLogin()">扫码登录</button>';
+  }
+}
+
+async function startSimpleConfig() {
+  const btn = document.getElementById('btnStartConfig');
+  const loading = document.getElementById('configInitLoading');
+  const qr = document.getElementById('configInitQR');
+  const errEl = document.getElementById('configError');
+  const statusEl = document.getElementById('configStatusText');
+
+  btn.disabled = true;
+  errEl.classList.add('hidden');
+  qr.classList.add('hidden');
+  loading.classList.remove('hidden');
+  statusEl.textContent = '正在打开飞书配置流程...';
+
+  try {
+    const res = await fetch('/api/config/start', { method: 'POST' });
+    const data = await res.json();
+    applyResponseVersion(res, data);
+    loading.classList.add('hidden');
+
+    if (data.configured) {
+      statusEl.textContent = '飞书应用已配置，正在进入扫码登录';
+      btn.disabled = false;
+      await checkAuth();
+      await startAuthLogin();
+      return;
+    }
+
+    if (!data.ok) {
+      errEl.classList.remove('hidden');
+      errEl.textContent = data.error || '打开飞书配置失败';
+      statusEl.textContent = '';
+      btn.disabled = false;
+      return;
+    }
+
+    statusEl.textContent = '请在飞书页面完成应用创建或绑定';
+    const configQrImage = document.getElementById('configQrImage');
+    const configQrASCII = document.getElementById('configQrASCII');
+    if (data.qr_image_url) {
+      configQrImage.src = data.qr_image_url;
+      configQrImage.classList.remove('hidden');
+      configQrASCII.classList.add('hidden');
+      configQrASCII.textContent = '';
+    } else if (data.qr_ascii) {
+      configQrASCII.textContent = data.qr_ascii;
+      configQrASCII.classList.remove('hidden');
+      configQrImage.classList.add('hidden');
+      configQrImage.removeAttribute('src');
+    } else {
+      configQrImage.classList.add('hidden');
+      configQrASCII.classList.add('hidden');
+      configQrImage.removeAttribute('src');
+      configQrASCII.textContent = '';
+    }
+    if (data.verification_url) {
+      document.getElementById('configVerificationLink').href = data.verification_url;
+    }
+    qr.classList.remove('hidden');
+    btn.disabled = false;
+  } catch (e) {
+    loading.classList.add('hidden');
+    errEl.classList.remove('hidden');
+    errEl.textContent = '请求失败: ' + e.message;
+    statusEl.textContent = '';
+    btn.disabled = false;
+  }
+}
+
+async function completeSimpleConfig() {
+  const btn = document.getElementById('btnConfigComplete');
+  const errEl = document.getElementById('configError');
+  const statusEl = document.getElementById('configStatusText');
+  btn.disabled = true;
+  errEl.classList.add('hidden');
+  statusEl.textContent = '正在检查飞书应用配置结果...';
+
+  try {
+    const res = await fetch('/api/config/complete', { method: 'POST' });
+    const data = await res.json();
+    applyResponseVersion(res, data);
+    if (!data.ok || !data.configured) {
+      errEl.classList.remove('hidden');
+      errEl.textContent = data.error || '飞书应用配置尚未完成';
+      statusEl.textContent = '';
+      btn.disabled = false;
+      return;
+    }
+
+    statusEl.textContent = '飞书应用已配置，正在进入扫码登录';
+    btn.disabled = false;
+    await checkAuth();
+    await startAuthLogin();
+  } catch (e) {
+    errEl.classList.remove('hidden');
+    errEl.textContent = '请求失败: ' + e.message;
+    statusEl.textContent = '';
+    btn.disabled = false;
+  }
+}
+
+async function resetLocalConfig() {
+  if (!confirm('确定要清除本机保存的飞书配置和认证状态吗？清除后需要重新走一次飞书配置和扫码登录。')) {
+    return;
+  }
+
+  const btn = document.getElementById('btnResetConfig');
+  const statusEl = document.getElementById('resetConfigStatus');
+  const configErr = document.getElementById('configError');
+  const authErr = document.getElementById('authLoginError');
+  btn.disabled = true;
+  statusEl.textContent = '正在清除本机飞书配置...';
+  configErr.classList.add('hidden');
+  authErr.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/config/remove', { method: 'POST' });
+    const data = await res.json();
+    applyResponseVersion(res, data);
+    if (!data.ok) {
+      statusEl.textContent = '';
+      authErr.classList.remove('hidden');
+      authErr.textContent = data.error || '清除失败';
+      btn.disabled = false;
+      return;
+    }
+
+    document.getElementById('configInitQR').classList.add('hidden');
+    document.getElementById('configInitLoading').classList.add('hidden');
+    document.getElementById('configQrImage').classList.add('hidden');
+    document.getElementById('configQrImage').removeAttribute('src');
+    document.getElementById('configQrASCII').classList.add('hidden');
+    document.getElementById('configQrASCII').textContent = '';
+    document.getElementById('authLoginPanel').classList.add('hidden');
+    document.getElementById('qrImage').classList.add('hidden');
+    document.getElementById('qrImage').removeAttribute('src');
+    document.getElementById('qrASCII').classList.add('hidden');
+    document.getElementById('qrASCII').textContent = '';
+    currentDeviceCode = '';
+    statusEl.textContent = '已清除，请重新完成飞书应用配置';
+    btn.disabled = false;
+    await checkAuth();
+  } catch (e) {
+    statusEl.textContent = '';
+    authErr.classList.remove('hidden');
+    authErr.textContent = '请求失败: ' + e.message;
+    btn.disabled = false;
+  }
+}
+
+async function startAuthLogin() {
+  const panel = document.getElementById('authLoginPanel');
+  const loading = document.getElementById('authLoginLoading');
+  const qr = document.getElementById('authLoginQR');
+  const errEl = document.getElementById('authLoginError');
+
+  panel.classList.remove('hidden');
+  loading.classList.remove('hidden');
+  qr.classList.add('hidden');
+  errEl.classList.add('hidden');
+
+  try {
+    const res = await fetch('/api/auth/login', { method: 'POST' });
+    const data = await res.json();
+
+    loading.classList.add('hidden');
+
+    if (!data.ok) {
+      errEl.classList.remove('hidden');
+      errEl.textContent = data.error;
+      if ((data.error || '').includes('未完成飞书应用配置')) {
+        document.getElementById('configPanel').classList.remove('hidden');
+      }
+      return;
+    }
+
+    currentDeviceCode = data.device_code;
+
+    const qrImage = document.getElementById('qrImage');
+    const qrASCII = document.getElementById('qrASCII');
+    if (data.qr_image_url) {
+      qrImage.src = data.qr_image_url;
+      qrImage.classList.remove('hidden');
+      qrASCII.classList.add('hidden');
+      qrASCII.textContent = '';
+      qr.classList.remove('hidden');
+    } else if (data.qr_available && data.qr_ascii) {
+      qrASCII.textContent = data.qr_ascii;
+      qrASCII.classList.remove('hidden');
+      qrImage.classList.add('hidden');
+      qrImage.removeAttribute('src');
+      qr.classList.remove('hidden');
+    } else {
+      errEl.classList.remove('hidden');
+      errEl.textContent = '二维码生成失败，请使用下方链接手动登录';
+      if (data.verification_url) {
+        qr.classList.remove('hidden');
+        qrImage.classList.add('hidden');
+        qrASCII.classList.add('hidden');
+        qrImage.removeAttribute('src');
+        qrASCII.textContent = '';
+      }
+    }
+
+    if (data.verification_url) {
+      document.getElementById('verificationLink').href = data.verification_url;
+    }
+  } catch (e) {
+    loading.classList.add('hidden');
+    errEl.classList.remove('hidden');
+    errEl.textContent = '请求失败: ' + e.message;
+  }
+}
+
+async function completeAuthLogin() {
+  if (!currentDeviceCode) {
+    alert('请先获取登录二维码');
+    return;
+  }
+
+  const btn = document.getElementById('btnAuthComplete');
+  btn.disabled = true;
+  btn.textContent = '正在验证...';
+
+  try {
+    const res = await fetch('/api/auth/complete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceCode: currentDeviceCode }),
+    });
+    const data = await res.json();
+
+    if (data.ok && data.authed) {
+      document.getElementById('authLoginPanel').classList.add('hidden');
+      const el = document.getElementById('authStatus');
+      el.className = 'auth-status auth-ok';
+      el.innerHTML = '<span>✅</span> 飞书已认证';
+      currentDeviceCode = '';
+    } else {
+      btn.disabled = false;
+      btn.textContent = '我已完成扫码授权';
+      alert('授权尚未完成，请确认已在飞书中完成扫码并同意授权后重试。\n\n错误信息: ' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    btn.disabled = false;
+    btn.textContent = '我已完成扫码授权';
+    alert('验证请求失败: ' + e.message);
+  }
+}
+
+async function browseFolder() {
+  const path = document.getElementById('folderPath').value || 'D:\\';
+  const browser = document.getElementById('dirBrowser');
+  browser.classList.remove('hidden');
+  browser.innerHTML = '<div style="padding:12px;color:#8f959e;">加载中...</div>';
+
+  try {
+    const res = await fetch('/api/list-dir?path=' + encodeURIComponent(path));
+    const data = await res.json();
+    if (data.ok) {
+      let html = '';
+      const parentDir = path.replace(/[\\\/][^\\\/]+[\\\/]?$/, '');
+      html += `<div class="dir-item" onclick="selectDir('${escapeHtml(parentDir)}')"><div class="dir-item-main"><span class="icon">📁</span><span class="dir-item-name">..</span></div><div class="dir-item-meta"></div></div>`;
+      for (const e of data.entries) {
+        const icon = e.isDir ? '📁' : '📄';
+        const onclick = e.isDir ? `onclick="selectDir('${escapeHtml(e.path)}')"` : '';
+        const importableBadge = e.isDir && e.hasImportable ? '<span class="badge badge-green">可导入</span>' : '';
+        const scanHint = e.isDir && (e.promptFileCount || e.rolloutGroupCount)
+          ? `<span class="dir-item-hint">Prompt ${e.promptFileCount || 0} / Rollout ${e.rolloutGroupCount || 0}</span>`
+          : '';
+        const rowClass = e.isDir && e.hasImportable ? 'dir-item dir-item-importable' : 'dir-item';
+        html += `<div class="${rowClass}" ${onclick}><div class="dir-item-main"><span class="icon">${icon}</span><span class="dir-item-name">${escapeHtml(e.name)}</span></div><div class="dir-item-meta">${scanHint}${importableBadge}</div></div>`;
+      }
+      browser.innerHTML = html;
+    }
+  } catch (e) {
+    browser.innerHTML = '<div style="padding:12px;color:#f54a45;">加载失败</div>';
+  }
+}
+
+function selectDir(path) {
+  document.getElementById('folderPath').value = path;
+  browseFolder();
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/\\/g, '\\\\');
+}
+
+function renderScanDetails(scan, targetId) {
+  const el = document.getElementById(targetId);
+  if (!el) return;
+  if (!scan) {
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    return;
+  }
+
+  const issues = Array.isArray(scan.issues) ? scan.issues : [];
+  const issueItems = issues.length
+    ? issues.slice(0, 20).map(item => `<tr><td style="padding:8px;border-top:1px solid #f0f0f0;font-size:12px;color:#646a73;word-break:break-all;">${escapeHtml(item.path || '-')}</td><td style="padding:8px;border-top:1px solid #f0f0f0;font-size:12px;color:#f54a45;word-break:break-all;">${escapeHtml(item.reason || '-')}</td></tr>`).join('')
+    : '<tr><td colspan="2" style="padding:8px;border-top:1px solid #f0f0f0;font-size:12px;color:#8f959e;">未发现异常文件</td></tr>';
+  const moreText = issues.length > 20 ? `<div style="font-size:12px;color:#8f959e;margin-top:8px;">仅展示前 20 条异常，剩余 ${issues.length - 20} 条未展开</div>` : '';
+
+  el.innerHTML = `
+    <div style="border:1px solid #e5e6eb;border-radius:8px;background:#fafafa;padding:16px;">
+      <div style="font-weight:600;color:#1f2329;margin-bottom:12px;">文件扫描详情</div>
+      <div style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:12px;">
+        <div style="background:#fff;border-radius:6px;padding:12px;"><div style="font-size:20px;font-weight:700;color:#3370ff;">${scan.datasetCount || 0}</div><div style="font-size:12px;color:#8f959e;">数据目录</div></div>
+        <div style="background:#fff;border-radius:6px;padding:12px;"><div style="font-size:20px;font-weight:700;color:#3370ff;">${scan.promptFileCount || 0}</div><div style="font-size:12px;color:#8f959e;">Prompt 文件</div></div>
+        <div style="background:#fff;border-radius:6px;padding:12px;"><div style="font-size:20px;font-weight:700;color:#1d8f3a;">${scan.rolloutCount || 0}</div><div style="font-size:12px;color:#8f959e;">Rollout 条目</div></div>
+        <div style="background:#fff;border-radius:6px;padding:12px;"><div style="font-size:20px;font-weight:700;color:#f5a623;">${scan.ignoredFileCount || 0}</div><div style="font-size:12px;color:#8f959e;">忽略文件</div></div>
+        <div style="background:#fff;border-radius:6px;padding:12px;"><div style="font-size:20px;font-weight:700;color:#8f959e;">${issues.length}</div><div style="font-size:12px;color:#8f959e;">异常条目</div></div>
+      </div>
+      <div style="font-size:12px;color:#8f959e;margin-bottom:8px;word-break:break-all;">扫描目录：${escapeHtml(scan.folderPath || '-')}</div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;background:#fff;border-radius:6px;overflow:hidden;">
+          <thead>
+            <tr>
+              <th style="text-align:left;padding:8px;background:#f7f8fa;font-size:12px;color:#646a73;">文件</th>
+              <th style="text-align:left;padding:8px;background:#f7f8fa;font-size:12px;color:#646a73;">问题</th>
+            </tr>
+          </thead>
+          <tbody>${issueItems}</tbody>
+        </table>
+      </div>
+      ${moreText}
+    </div>
+  `;
+  el.classList.remove('hidden');
+}
+
+async function loadPreview() {
+  const loading = document.getElementById('previewLoading');
+  const content = document.getElementById('previewContent');
+  const error = document.getElementById('previewError');
+  const errorScanDetails = document.getElementById('previewErrorScanDetails');
+
+  loading.classList.remove('hidden');
+  content.classList.add('hidden');
+  error.classList.add('hidden');
+  errorScanDetails.classList.add('hidden');
+  renderScanDetails(null, 'previewScanDetails');
+  renderScanDetails(null, 'previewErrorScanDetails');
+
+  try {
+    const res = await fetch('/api/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folderPath: document.getElementById('folderPath').value,
+        baseURL: document.getElementById('baseURL').value,
+        parentRecordId: document.getElementById('parentRecordId').value,
+      }),
+    });
+    const rawText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch(e) {
+      error.classList.remove('hidden');
+      error.textContent = 'JSON解析失败: ' + e.message + ' | 原始响应前200字符: ' + rawText.substring(0, 200);
+      loading.classList.add('hidden');
+      return;
+    }
+    applyResponseVersion(res, data);
+
+    if (!data.ok) {
+      previewData = null;
+      previewMeta = null;
+      document.getElementById('btnNext2').disabled = true;
+      error.classList.remove('hidden');
+      error.textContent = data.error;
+      if (data.scan) {
+        renderScanDetails(data.scan, 'previewErrorScanDetails');
+      }
+      loading.classList.add('hidden');
+      return;
+    }
+
+    previewData = data.data;
+    previewMeta = data.meta;
+
+    const total = previewData.length;
+
+    const summaryHtml = `
+      <div class="summary-card"><div class="num">${previewMeta.datasetCount || 0}</div><div class="label">数据目录</div></div>
+      <div class="summary-card"><div class="num">${previewMeta.promptCount || 0}</div><div class="label">Prompt 行</div></div>
+      <div class="summary-card"><div class="num">${previewMeta.rolloutCount || total}</div><div class="label">Rollout 行</div></div>
+      <div class="summary-card"><div class="num">${previewMeta.pendingRolloutCount || 0}</div><div class="label">待写入 Rollout</div></div>
+    `;
+    document.getElementById('summaryGrid').innerHTML = summaryHtml;
+    renderScanDetails(previewMeta.scan, 'previewScanDetails');
+
+    let tableHtml = '';
+    for (const m of previewData) {
+      const statusBadge = m.recordId ? '<span class="badge badge-green">已存在</span>' : '<span class="badge badge-red">待创建</span>';
+      const sidShort = m.sessionId ? (m.sessionId.length > 20 ? m.sessionId.substring(0, 20) + '...' : m.sessionId) : '-';
+      const promptTitle = m.promptPath ? `${m.promptPath}\n\n${m.promptText || ''}` : (m.promptText || '');
+      tableHtml += `<tr>
+        <td title="${escapeHtml(m.sourceDir || '')}">${escapeHtml(m.sourceDir || '-')}</td>
+        <td>${m.index}</td>
+        <td>${m.rolloutId}</td>
+        <td title="${escapeHtml(promptTitle)}">${m.prompt}</td>
+        <td><span class="badge badge-blue">${escapeHtml(m.modelName || '-')}</span></td>
+        <td>${escapeHtml(m.score || '-')}</td>
+        <td title="${escapeHtml(m.sessionId || '')}">${escapeHtml(sidShort)}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    }
+    document.getElementById('previewTable').innerHTML = tableHtml;
+
+    loading.classList.add('hidden');
+    content.classList.remove('hidden');
+    document.getElementById('btnNext2').disabled = false;
+  } catch (e) {
+    previewData = null;
+    previewMeta = null;
+    document.getElementById('btnNext2').disabled = true;
+    error.classList.remove('hidden');
+    error.textContent = '请求失败: ' + e.message;
+    loading.classList.add('hidden');
+  }
+}
+
+function prepareImport() {
+  const total = previewData.length;
+  const existingCount = previewData.filter(m => m.recordId).length;
+  const scan = previewMeta && previewMeta.scan ? previewMeta.scan : null;
+  const importModeText = `会按目录递归导入 <strong>${previewMeta.promptCount || 0}</strong> 条二级 Prompt 行，再写入 <strong>${total}</strong> 条三级 Rollout 行`;
+  const scanText = scan
+    ? `<p style="font-size:13px;color:#8f959e;margin-top:4px;">共扫描 ${scan.datasetCount || 0} 个数据目录、${scan.promptFileCount || 0} 个 Prompt 文件、${scan.rolloutCount || 0} 个 Rollout 条目</p>`
+    : '';
+  const existingText = `<p style="font-size:13px;color:#8f959e;margin-top:4px;">其中 ${existingCount} 条 Rollout 已在表格中存在，本次会按同一 Prompt 下面的 rollout_id + session_id 进行复用或更新</p>`;
+  const fieldText = '二级数据行写入：prompt、difficulty、category、tech_stack、module_tags；其中 prompt 会去掉首行标题、元信息和验证方式，只保留正文；三级数据行写入：prompt、session_id、score、score_reason、model_name，patch 附件直接上传到 git_diff；一级数据 task_count 默认写 7';
+  document.getElementById('importSummary').innerHTML = `
+    <p>${importModeText}</p>
+    ${scanText}
+    ${existingText}
+    <p style="font-size:13px;color:#8f959e;margin-top:4px;">${fieldText}</p>
+  `;
+}
+
+function resetImportState(keepStep3) {
+  document.getElementById('importReady').classList.remove('hidden');
+  document.getElementById('importProgress').classList.add('hidden');
+  document.getElementById('importDone').classList.add('hidden');
+  document.getElementById('btnImport').disabled = false;
+  document.getElementById('btnRestart').classList.add('hidden');
+  document.getElementById('progressFill').style.width = '0%';
+  document.getElementById('progressText').textContent = '';
+  document.getElementById('importLog').innerHTML = '';
+  document.getElementById('resultLog').innerHTML = '';
+  document.getElementById('resultGrid').innerHTML = '';
+  document.getElementById('resultWarnings').innerHTML = '';
+  document.getElementById('resultWarnings').classList.add('hidden');
+  if (keepStep3) {
+    prepareImport();
+    return;
+  }
+  goToStep(1);
+}
+
+async function startImport() {
+  document.getElementById('importReady').classList.add('hidden');
+  document.getElementById('importProgress').classList.remove('hidden');
+  document.getElementById('btnImport').disabled = true;
+
+  const log = document.getElementById('importLog');
+  const fill = document.getElementById('progressFill');
+  const text = document.getElementById('progressText');
+
+  log.innerHTML = '<div class="info">开始导入...</div>';
+
+  try {
+    const res = await fetch('/api/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        folderPath: document.getElementById('folderPath').value,
+        baseURL: document.getElementById('baseURL').value,
+        parentRecordId: document.getElementById('parentRecordId').value,
+        mappings: previewData,
+      }),
+    });
+    const data = await res.json();
+    applyResponseVersion(res, data);
+    log.innerHTML += `<div class="info">页面版本 ${APP_VERSION} / 后端版本 ${data.version || '未知'}</div>`;
+
+    if (!data.ok) {
+      log.innerHTML += `<div class="error">导入失败: ${data.error}</div>`;
+      document.getElementById('btnRestart').classList.remove('hidden');
+      document.getElementById('importProgress').classList.add('hidden');
+      document.getElementById('importDone').classList.remove('hidden');
+      document.getElementById('resultLog').innerHTML = log.innerHTML;
+      return;
+    }
+
+    let successCount = 0;
+    let failCount = 0;
+    for (const r of data.results) {
+      const pct = Math.round(((successCount + failCount + 1) / data.total) * 100);
+      fill.style.width = pct + '%';
+      text.textContent = `${successCount + failCount + 1} / ${data.total}`;
+
+      if (r.success) {
+        successCount++;
+        log.innerHTML += `<div class="success">✅ ${r.message}</div>`;
+      } else {
+        failCount++;
+        log.innerHTML += `<div class="error">❌ ${r.message}</div>`;
+      }
+    }
+
+    document.getElementById('importProgress').classList.add('hidden');
+    document.getElementById('importDone').classList.remove('hidden');
+    document.getElementById('btnRestart').classList.remove('hidden');
+
+    const warningCount = data.warningCount || (data.warnings ? data.warnings.length : 0);
+    document.getElementById('resultGrid').innerHTML = `
+      <div class="summary-card"><div class="num">${data.total}</div><div class="label">总计</div></div>
+      <div class="summary-card"><div class="num" style="color:#1d8f3a;">${successCount}</div><div class="label">成功</div></div>
+      <div class="summary-card"><div class="num" style="color:#f54a45;">${failCount}</div><div class="label">失败</div></div>
+      <div class="summary-card"><div class="num" style="color:${warningCount ? '#f0b429' : '#667085'};">${warningCount}</div><div class="label">报警</div></div>
+      <div class="summary-card"><div class="num">${Math.round(successCount/data.total*100)}%</div><div class="label">成功率</div></div>
+    `;
+
+    if (warningCount) {
+      const warningBox = document.getElementById('resultWarnings');
+      warningBox.classList.remove('hidden');
+      warningBox.innerHTML = `<div style="font-weight:700;margin-bottom:8px;">报警信息</div>${data.warnings.map(w => `<div class="warning">⚠️ [${escapeHtml(w.scope || '报警')}] ${escapeHtml(w.message || '')}</div>`).join('')}`;
+    }
+
+    document.getElementById('resultLog').innerHTML = log.innerHTML;
+  } catch (e) {
+    log.innerHTML += `<div class="error">导入请求失败: ${e.message}</div>`;
+    document.getElementById('btnRestart').classList.remove('hidden');
+    document.getElementById('importProgress').classList.add('hidden');
+    document.getElementById('importDone').classList.remove('hidden');
+    document.getElementById('resultLog').innerHTML = log.innerHTML;
+  }
+}
+
+document.getElementById('pageVersion').textContent = APP_VERSION;
+checkAuth();
+</script>
+</body>
+</html>

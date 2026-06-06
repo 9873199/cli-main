@@ -43,4 +43,11 @@ app.log
 .tmp/
 cover*.out
 
+# import-tool generated artifacts
+/import-tool/release/
+/import-tool/*.exe
+/import-tool/debug-*.json
+/import-tool/import-result.json
+/import-tool/lark_filter_*.json
+
 lark-env.sh
